@@ -95,6 +95,7 @@ cPanel → **Trabajos de Cron** → *Configuración común*: «Cada 15 minutos»
 | Síntoma | Solución |
 |---|---|
 | `Parse error: syntax error, unexpected '\|'` o aviso «Hay que actualizar PHP» | El dominio usa PHP 7. Cámbialo a 8.2 en **MultiPHP Manager** (paso 1). |
+| `session_start(): open(/var/cpanel/php/sessions/alt-php74/...) failed` | Quedó configurada la carpeta de sesiones de la versión antigua de PHP. La tienda usa entonces automáticamente `storage/sessions`, así que funciona igual. Para corregirlo en el servidor: cPanel → *Select PHP Version* → *Options* → `session.save_path`, o borra el `php.ini`/`.user.ini` que lo fija. |
 | Error 500 / página en blanco | En `config.php` pon `'debug' => true`, recarga para ver el error y vuelve a ponerlo en `false`. También en cPanel → *Errors*. |
 | «Faltan las dependencias» | No se subió la carpeta `vendor/`: vuelve a extraer el ZIP completo. |
 | La página sale sin estilos | Revisa `base_url` en `config.php` (`/tienda` si está en esa subcarpeta, `''` si está en la raíz). |
