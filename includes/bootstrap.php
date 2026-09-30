@@ -1,6 +1,12 @@
 <?php
 declare(strict_types=1);
 
+// Con PHP antiguo mostramos instrucciones en lugar de un error de sintaxis
+if (PHP_VERSION_ID < 80100) {
+    require __DIR__ . '/php-version-error.php';
+    exit;
+}
+
 if (!is_file(__DIR__ . '/../config.php')) {
     // Primera visita en el hosting: al instalador
     if (is_file(__DIR__ . '/../install.php') && PHP_SAPI !== 'cli') {

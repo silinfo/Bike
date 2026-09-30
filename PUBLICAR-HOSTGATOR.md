@@ -6,8 +6,9 @@ Tiempo aproximado: 10–15 minutos. No hace falta SSH ni Composer: el ZIP ya inc
 
 ---
 
-## 1. Elegir PHP 8.2 o superior
+## 1. Elegir PHP 8.2 o superior (¡imprescindible!)
 cPanel → **MultiPHP Manager** → marca tu dominio → elige **PHP 8.2** (o 8.3) → *Aplicar*.
+Si la tienda va en un dominio adicional (p. ej. `ciutat.com` dentro de tu cuenta), cambia la versión **de ese dominio**: cada uno tiene la suya. Con PHP 7 verás un aviso con estos pasos.
 
 ## 2. Crear la base de datos
 cPanel → **Asistente de bases de datos MySQL**:
@@ -93,6 +94,7 @@ cPanel → **Trabajos de Cron** → *Configuración común*: «Cada 15 minutos»
 
 | Síntoma | Solución |
 |---|---|
+| `Parse error: syntax error, unexpected '\|'` o aviso «Hay que actualizar PHP» | El dominio usa PHP 7. Cámbialo a 8.2 en **MultiPHP Manager** (paso 1). |
 | Error 500 / página en blanco | En `config.php` pon `'debug' => true`, recarga para ver el error y vuelve a ponerlo en `false`. También en cPanel → *Errors*. |
 | «Faltan las dependencias» | No se subió la carpeta `vendor/`: vuelve a extraer el ZIP completo. |
 | La página sale sin estilos | Revisa `base_url` en `config.php` (`/tienda` si está en esa subcarpeta, `''` si está en la raíz). |
