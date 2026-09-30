@@ -13,7 +13,7 @@ git ls-files -z --cached --others --exclude-standard | grep -zv '^bin/empaquetar
 cp composer.json composer.lock "$TMP/"
 composer install -q -d "$TMP" --no-dev --prefer-dist --optimize-autoloader --no-interaction
 rm -f "$TMP/config.php"
-mkdir -p "$TMP/storage/mails" "$TMP/storage/logs" "$TMP/uploads"
+mkdir -p "$TMP/storage/mails" "$TMP/storage/logs" "$TMP/storage/sessions" "$TMP/uploads"
 
 rm -f "$OUT"
 (cd "$TMP" && zip -qr -X "$OUT" . -x '*/.git/*' '.git/*' 'vendor/*/tests/*' 'vendor/*/*/tests/*' 'vendor/*/*/examples/*')

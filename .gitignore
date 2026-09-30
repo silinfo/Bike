@@ -8,3 +8,5 @@ storage/mails/*
 storage/logs/*
 !storage/mails/.gitkeep
 !storage/logs/.gitkeep
+storage/sessions/*
+!storage/sessions/.gitkeep

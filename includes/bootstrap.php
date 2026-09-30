@@ -32,6 +32,22 @@ error_reporting(E_ALL);
 
 // El webhook de Stripe y los scripts CLI no usan sesión ($noSession = true antes del require)
 if (PHP_SAPI !== 'cli' && empty($noSession)) {
+    // Si la carpeta de sesiones del servidor no existe o no se puede escribir
+    // (p. ej. en cPanel tras cambiar de versión de PHP queda apuntando a la
+    // antigua), usamos una propia dentro de storage/, protegida por .htaccess.
+    $savePath = (string)session_save_path();
+    $saveDir = substr($savePath, (int)strrpos(';' . $savePath, ';')); // admite "N;/ruta"
+    if ($saveDir === '' || !@is_dir($saveDir) || !@is_writable($saveDir)) {
+        $ownDir = __DIR__ . '/../storage/sessions';
+        if (!is_dir($ownDir)) @mkdir($ownDir, 0700, true);
+        if (is_dir($ownDir) && is_writable($ownDir)) {
+            session_save_path($ownDir);
+            // En carpeta propia PHP debe limpiar él mismo las sesiones caducadas
+            ini_set('session.gc_probability', '1');
+            ini_set('session.gc_divisor', '100');
+        }
+    }
+
     session_set_cookie_params([
         'httponly' => true,
         'samesite' => 'Lax',
