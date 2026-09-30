@@ -1,0 +1,7 @@
+Options -Indexes
+DirectoryIndex index.php
+
+# Bloquea el acceso web a la configuración y archivos internos
+<FilesMatch "^(config(\.example)?\.php|README\.md|\.gitignore|_.*\.php)$">
+    Require all denied
+</FilesMatch>
