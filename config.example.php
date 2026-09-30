@@ -4,9 +4,9 @@ return [
     'db' => [
         'host'    => '127.0.0.1',
         'port'    => 3306,
-        'name'    => 'bike_shop',
-        'user'    => 'bike',
-        'pass'    => 'bike',
+        'name'    => 'bike_bike',
+        'user'    => 'silinfo_bike',
+        'pass'    => 'silinfo_Bike@07',
         'charset' => 'utf8mb4',
     ],
     'site' => [
