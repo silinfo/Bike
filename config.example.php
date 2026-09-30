@@ -1,6 +1,8 @@
 <?php
 // Copia este archivo como config.php y ajusta los valores.
 return [
+    // true solo mientras desarrollas: muestra los errores de PHP en pantalla
+    'debug' => false,
     'db' => [
         'host'    => '127.0.0.1',
         'port'    => 3306,

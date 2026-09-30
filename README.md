@@ -24,6 +24,10 @@ Web + tienda online para vender bicicletas y accesorios. PHP 8, MySQL/MariaDB (P
 
 ## Instalación
 
+**Hosting compartido (HostGator, cPanel…):** sigue [PUBLICAR-HOSTGATOR.md](PUBLICAR-HOSTGATOR.md). Sube el ZIP generado con `bin/empaquetar.sh` (incluye `vendor/`) y abre la web: un instalador crea la base de datos, el administrador y `config.php`.
+
+**Servidor propio / local:**
+
 ```bash
 composer install                          # Stripe SDK y PHPMailer
 cp config.example.php config.php          # edita datos de BD, tienda, Stripe y email

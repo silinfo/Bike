@@ -2,6 +2,12 @@
 declare(strict_types=1);
 
 if (!is_file(__DIR__ . '/../config.php')) {
+    // Primera visita en el hosting: al instalador
+    if (is_file(__DIR__ . '/../install.php') && PHP_SAPI !== 'cli') {
+        $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+        header('Location: ' . preg_replace('#/admin$#', '', $base) . '/install.php');
+        exit;
+    }
     http_response_code(500);
     exit('Falta config.php. Copia config.example.php como config.php y configura la base de datos.');
 }
@@ -13,6 +19,10 @@ if (!is_file(__DIR__ . '/../vendor/autoload.php')) {
 require __DIR__ . '/../vendor/autoload.php';
 
 $GLOBALS['config'] = require __DIR__ . '/../config.php';
+
+// En producción no se muestran errores al visitante (quedan en el log del servidor)
+ini_set('display_errors', !empty($GLOBALS['config']['debug']) ? '1' : '0');
+error_reporting(E_ALL);
 
 // El webhook de Stripe y los scripts CLI no usan sesión ($noSession = true antes del require)
 if (PHP_SAPI !== 'cli' && empty($noSession)) {
