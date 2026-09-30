@@ -2,6 +2,11 @@
     'use strict';
     const $ = (s, ctx = document) => ctx.querySelector(s);
     const $$ = (s, ctx = document) => [...ctx.querySelectorAll(s)];
+    // Igual que money() en PHP: 3.017,00 € (Intl es-ES no agrupa números de 4 cifras)
+    const fmt = v => {
+        const [int, dec] = Number(v).toFixed(2).split('.');
+        return int.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec + ' €';
+    };
 
     // --- Menú móvil ---
     const navToggle = $('#navToggle');
@@ -36,7 +41,6 @@
     $('#filtersToggle')?.addEventListener('click', () => $('#shopSidebar').classList.toggle('open'));
     $$('[data-range-output]').forEach(r => {
         const out = document.getElementById(r.dataset.rangeOutput);
-        const fmt = v => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v);
         r.addEventListener('input', () => { out.textContent = fmt(r.value); });
     });
 
@@ -114,14 +118,21 @@
         const fields = $('#shippingFields');
         const shipEl = $('#shippingCost');
         const totalEl = $('#orderTotal');
-        const fmt = v => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(v);
         const refresh = () => {
             const pickup = $('input[name="payment_method"]:checked', checkout)?.value === 'store';
             fields.classList.toggle('hidden', pickup);
             const ship = pickup ? 0 : parseFloat(shipEl.dataset.cost);
             shipEl.textContent = ship > 0 ? fmt(ship) : 'Gratis';
             totalEl.textContent = fmt(parseFloat(totalEl.dataset.subtotal) + ship);
+            const btn = $('#submitOrder');
+            const card = $('input[name="payment_method"]:checked', checkout)?.value === 'card';
+            btn.textContent = card ? btn.dataset.labelCard : btn.dataset.label;
         };
+        // Evita pedidos duplicados por doble clic
+        checkout.addEventListener('submit', () => {
+            const btn = $('#submitOrder');
+            setTimeout(() => { btn.disabled = true; btn.textContent = 'Procesando…'; }, 0);
+        });
         $$('input[name="payment_method"]', checkout).forEach(r => r.addEventListener('change', refresh));
         refresh();
     }

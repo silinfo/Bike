@@ -410,6 +410,9 @@ input[type=text], input[type=email], input[type=tel], input[type=number], input[
 
 .order-done { text-align: center; }
 .order-check { width: 80px; height: 80px; margin: 0 auto 24px; border-radius: 50%; background: var(--ok); color: #fff; font-size: 2.6rem; display: flex; align-items: center; justify-content: center; }
+.order-check-off { background: #888; }
+.order-check-wait { background: #b7791f; }
+.secure-note { font-size: .8rem; color: var(--muted); text-align: center; margin: 12px 0 0; }
 .notice { text-align: left; background: var(--bg-alt); border-left: 4px solid var(--accent); padding: 20px 24px; margin: 28px 0; border-radius: var(--radius); }
 .order-table { width: 100%; border-collapse: collapse; margin: 28px 0; text-align: left; }
 .order-table th, .order-table td { padding: 12px 8px; border-bottom: 1px solid var(--line); }

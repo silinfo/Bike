@@ -5,3 +5,6 @@ DirectoryIndex index.php
 <FilesMatch "^(config(\.example)?\.php|README\.md|\.gitignore|_.*\.php)$">
     Require all denied
 </FilesMatch>
+
+# Dependencias de Composer: no accesibles desde la web
+RedirectMatch 404 /vendor/

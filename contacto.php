@@ -17,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$errors) {
         db_exec('INSERT INTO contact_messages (name, email, subject, message) VALUES (?,?,?,?)',
             [$data['name'], $data['email'], $data['subject'] ?: null, $data['message']]);
+        mail_admin_contact($data);
         flash('success', '¡Gracias! Te responderemos en menos de 24 horas.');
         redirect('contacto.php');
     }

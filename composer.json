@@ -1,0 +1,8 @@
+{
+    "name": "velox/bike-shop",
+    "type": "project",
+    "require": {
+        "stripe/stripe-php": "^16",
+        "phpmailer/phpmailer": "^6.9"
+    }
+}

@@ -1,6 +1,9 @@
 <?php
 require __DIR__ . '/_bootstrap.php';
 
+// Por si no está configurado el cron: revisa pagos con tarjeta abandonados
+stripe_cleanup_stale_orders(10);
+
 $stats = db_one("SELECT
     (SELECT COUNT(*) FROM orders WHERE status <> 'cancelled') AS orders,
     (SELECT COALESCE(SUM(total),0) FROM orders WHERE status IN ('paid','shipped','completed')) AS revenue,

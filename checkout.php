@@ -9,7 +9,14 @@ if (!$items) {
 
 $fields = ['customer_name', 'email', 'phone', 'address', 'city', 'postal_code', 'province', 'notes', 'payment_method'];
 $data = array_fill_keys($fields, '');
-$data['payment_method'] = 'transfer';
+$paymentMethods = [
+    'card'     => 'Paga con tarjeta, Apple Pay o Google Pay en la pasarela segura de Stripe.',
+    'transfer' => 'Pago por transferencia. Enviamos el pedido al recibir el pago.',
+    'cod'      => 'Pagas al recibir el pedido.',
+    'store'    => 'Recoge y paga en nuestra tienda. Sin gastos de envío.',
+];
+if (!stripe_enabled()) unset($paymentMethods['card']);
+$data['payment_method'] = array_key_first($paymentMethods);
 $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -19,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (mb_strlen($data['customer_name']) < 3) $errors['customer_name'] = 'Indica tu nombre completo.';
     if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Email no válido.';
     if (!preg_match('/^[0-9 +()-]{9,20}$/', $data['phone'])) $errors['phone'] = 'Teléfono no válido.';
-    if (!in_array($data['payment_method'], ['transfer', 'cod', 'store'], true)) $errors['payment_method'] = 'Elige un método de pago.';
+    if (!isset($paymentMethods[$data['payment_method']])) $errors['payment_method'] = 'Elige un método de pago.';
     if ($data['payment_method'] !== 'store') {
         if (mb_strlen($data['address']) < 5) $errors['address'] = 'Indica la dirección de envío.';
         if ($data['city'] === '') $errors['city'] = 'Indica la ciudad.';
@@ -35,44 +42,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($_POST['accept'])) $errors['accept'] = 'Debes aceptar las condiciones de compra.';
 
     if (!$errors) {
-        $pdo = db();
+        $items = cart_items();
+        $totals = cart_totals($items, $data['payment_method'] === 'store');
         try {
-            $pdo->beginTransaction();
-            $items = cart_items();
-            $totals = cart_totals($items, $data['payment_method'] === 'store');
-
-            // Descuenta stock de forma atómica; si falta stock se cancela todo
-            foreach ($items as $it) {
-                $affected = $it['variant_id']
-                    ? db_exec('UPDATE product_variants SET stock = stock - ? WHERE id = ? AND stock >= ?', [$it['qty'], $it['variant_id'], $it['qty']])
-                    : db_exec('UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?', [$it['qty'], $it['product_id'], $it['qty']]);
-                if ($affected !== 1) throw new RuntimeException('Sin stock suficiente de ' . $it['name'] . ($it['variant'] ? ' (' . $it['variant'] . ')' : '') . '.');
-            }
-
-            $reference = 'VX-' . date('ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
-            db_exec('INSERT INTO orders (reference, customer_name, email, phone, address, city, postal_code, province, notes, payment_method, subtotal, shipping, total)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', [
-                $reference, $data['customer_name'], $data['email'], $data['phone'], $data['address'], $data['city'],
-                $data['postal_code'], $data['province'], $data['notes'] ?: null, $data['payment_method'],
-                $totals['subtotal'], $totals['shipping'], $totals['total'],
-            ]);
-            $orderId = (int)$pdo->lastInsertId();
-            foreach ($items as $it) {
-                db_exec('INSERT INTO order_items (order_id, product_id, variant_id, product_name, variant_label, unit_price, quantity) VALUES (?,?,?,?,?,?,?)',
-                    [$orderId, $it['product_id'], $it['variant_id'], $it['name'], $it['variant'], $it['price'], $it['qty']]);
-            }
-            $pdo->commit();
-
-            cart_clear();
-            $_SESSION['last_order'] = $reference;
-            // Aquí puedes enviar el email de confirmación (mail() / PHPMailer)
-            // o redirigir a la pasarela de pago (Stripe, Redsys, PayPal).
-            redirect('pedido.php?ref=' . urlencode($reference));
+            $order = order_create_from_cart($data, $items, $totals);
         } catch (RuntimeException $ex) {
-            $pdo->rollBack();
             flash('error', $ex->getMessage() . ' Revisa tu carrito.');
             redirect('carrito.php');
         }
+        $_SESSION['last_order'] = $order['reference'];
+
+        if ($data['payment_method'] === 'card') {
+            // Pago con tarjeta: el pedido queda pendiente hasta que Stripe confirme el cobro
+            try {
+                $payUrl = stripe_create_checkout($order);
+                cart_clear();
+                redirect($payUrl);
+            } catch (\Stripe\Exception\ApiErrorException $ex) {
+                app_log('Stripe: no se pudo crear la sesión de pago', ['order' => $order['reference'], 'error' => $ex->getMessage()]);
+                order_transition((int)$order['id'], 'cancelled', 'pending', false);
+                flash('error', 'No hemos podido conectar con la pasarela de pago. Inténtalo de nuevo o elige otro método de pago.');
+                redirect('checkout.php');
+            }
+        }
+
+        cart_clear();
+        order_notify((int)$order['id'], 'pending');
+        redirect('pedido.php?ref=' . urlencode($order['reference']));
     }
 }
 
@@ -117,7 +113,7 @@ require __DIR__ . '/includes/header.php';
                 <fieldset>
                     <legend>2. Entrega y pago</legend>
                     <div class="pay-options">
-                        <?php foreach (['transfer' => 'Pago por transferencia. Enviamos el pedido al recibir el pago.', 'cod' => 'Pagas al recibir el pedido (+0 €).', 'store' => 'Recoge y paga en nuestra tienda. Sin gastos de envío.'] as $m => $desc): ?>
+                        <?php foreach ($paymentMethods as $m => $desc): ?>
                             <label class="pay-option">
                                 <input type="radio" name="payment_method" value="<?= $m ?>" <?= $data['payment_method'] === $m ? 'checked' : '' ?>>
                                 <span><strong><?= e(payment_method_label($m)) ?></strong><small><?= e($desc) ?></small></span>
@@ -174,7 +170,10 @@ require __DIR__ . '/includes/header.php';
                     <div class="summary-total"><dt>Total</dt><dd id="orderTotal" data-subtotal="<?= e((string)$totals['subtotal']) ?>"><?= money($totals['total']) ?></dd></div>
                 </dl>
                 <p class="tax-note">IVA incluido</p>
-                <button class="btn btn-accent btn-lg btn-block" type="submit">Confirmar pedido</button>
+                <button class="btn btn-accent btn-lg btn-block" type="submit" id="submitOrder" data-label-card="Pagar con tarjeta" data-label="Confirmar pedido"><?= $data['payment_method'] === 'card' ? 'Pagar con tarjeta' : 'Confirmar pedido' ?></button>
+                <?php if (isset($paymentMethods['card'])): ?>
+                    <p class="secure-note">🔒 Pago seguro con Stripe. No guardamos los datos de tu tarjeta.</p>
+                <?php endif; ?>
             </aside>
         </form>
     </div>

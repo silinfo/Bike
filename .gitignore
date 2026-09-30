@@ -3,3 +3,8 @@ uploads/*
 !uploads/.gitkeep
 .DS_Store
 !uploads/.htaccess
+vendor/
+storage/mails/*
+storage/logs/*
+!storage/mails/.gitkeep
+!storage/logs/.gitkeep

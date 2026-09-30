@@ -63,12 +63,18 @@ CREATE TABLE orders (
     postal_code    VARCHAR(12)  NOT NULL,
     province       VARCHAR(80)  NOT NULL,
     notes          TEXT NULL,
-    payment_method ENUM('transfer','cod','store') NOT NULL,
+    payment_method ENUM('card','transfer','cod','store') NOT NULL,
+    stripe_session_id     VARCHAR(255) NULL,
+    stripe_payment_intent VARCHAR(255) NULL,
     subtotal       DECIMAL(10,2) NOT NULL,
     shipping       DECIMAL(10,2) NOT NULL,
     total          DECIMAL(10,2) NOT NULL,
     status         ENUM('pending','paid','shipped','completed','cancelled') NOT NULL DEFAULT 'pending',
-    created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    tracking_number VARCHAR(80) NULL,
+    paid_at        DATETIME NULL,
+    created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_orders_stripe (stripe_session_id),
+    INDEX idx_orders_status (status, payment_method, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE order_items (

@@ -21,6 +21,28 @@ function url(string $path = ''): string
     return config('site.base_url', '') . '/' . ltrim($path, '/');
 }
 
+/**
+ * URL absoluta (para Stripe y emails). Usa site.app_url o la petición actual.
+ */
+function absolute_url(string $path = ''): string
+{
+    $base = rtrim((string)config('site.app_url', ''), '/');
+    if ($base === '') {
+        $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+        $base = ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . config('site.base_url', '');
+    }
+    return $base . '/' . ltrim($path, '/');
+}
+
+/**
+ * Registro de errores/eventos en storage/logs/app.log
+ */
+function app_log(string $message, array $context = []): void
+{
+    $line = '[' . date('Y-m-d H:i:s') . '] ' . $message . ($context ? ' ' . json_encode($context, JSON_UNESCAPED_UNICODE) : '') . PHP_EOL;
+    @file_put_contents(__DIR__ . '/../storage/logs/app.log', $line, FILE_APPEND | LOCK_EX);
+}
+
 function asset(string $path): string
 {
     return url($path);
@@ -127,6 +149,7 @@ function order_status_label(string $status): string
 function payment_method_label(string $m): string
 {
     return [
+        'card'     => 'Tarjeta (Stripe)',
         'transfer' => 'Transferencia bancaria',
         'cod'      => 'Contra reembolso',
         'store'    => 'Pago y recogida en tienda',

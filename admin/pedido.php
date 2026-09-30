@@ -9,28 +9,32 @@ $statuses = ['pending', 'paid', 'shipped', 'completed', 'cancelled'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
-    $new = $_POST['status'] ?? '';
+    $new = (string)($_POST['status'] ?? '');
+    $tracking = trim((string)($_POST['tracking_number'] ?? ''));
+    $notify = !empty($_POST['notify']);
+
+    if ($tracking !== (string)$order['tracking_number']) {
+        db_exec('UPDATE orders SET tracking_number = ? WHERE id = ?', [$tracking ?: null, $id]);
+    }
     if (in_array($new, $statuses, true) && $new !== $order['status']) {
-        $pdo = db();
-        $pdo->beginTransaction();
-        // Cancelar devuelve el stock; reactivar un pedido cancelado lo vuelve a descontar
-        $delta = match (true) {
-            $new === 'cancelled' => 1,
-            $order['status'] === 'cancelled' => -1,
-            default => 0,
-        };
-        if ($delta) {
-            foreach ($items as $it) {
-                if ($it['variant_id']) db_exec('UPDATE product_variants SET stock = GREATEST(0, stock + ?) WHERE id = ?', [$delta * $it['quantity'], $it['variant_id']]);
-                elseif ($it['product_id']) db_exec('UPDATE products SET stock = GREATEST(0, stock + ?) WHERE id = ?', [$delta * $it['quantity'], $it['product_id']]);
-            }
-        }
-        db_exec('UPDATE orders SET status = ? WHERE id = ?', [$new, $id]);
-        $pdo->commit();
-        flash('success', 'Estado actualizado a «' . order_status_label($new) . '».' . ($delta === 1 ? ' Stock repuesto.' : ''));
+        order_transition($id, $new, $order['status'], $notify);
+        $msg = 'Estado actualizado a «' . order_status_label($new) . '».';
+        if ($new === 'cancelled') $msg .= ' Stock repuesto.';
+        if ($notify && in_array($new, ['paid', 'shipped', 'cancelled'], true)) $msg .= ' Email enviado al cliente.';
+        if ($new === 'cancelled' && $order['payment_method'] === 'card' && $order['paid_at']) $msg .= ' Recuerda hacer el reembolso desde el panel de Stripe.';
+        flash('success', $msg);
+    } elseif ($tracking !== (string)$order['tracking_number']) {
+        flash('success', 'Número de seguimiento guardado.');
     }
     redirect('admin/pedido.php?id=' . $id);
 }
+
+// Pedido con tarjeta pendiente: comprobamos en Stripe por si el webhook no llegó
+if ($order['payment_method'] === 'card' && $order['status'] === 'pending') {
+    stripe_sync_order($order);
+    $order = order_find($id);
+}
+$stripeDashboard = str_starts_with((string)config('stripe.secret_key'), 'sk_test_') ? 'https://dashboard.stripe.com/test/payments/' : 'https://dashboard.stripe.com/payments/';
 
 $section = 'pedidos';
 $pageTitle = 'Pedido ' . $order['reference'];
@@ -71,11 +75,22 @@ require __DIR__ . '/_header.php';
             <h2>Estado</h2>
             <form method="post">
                 <?= csrf_field() ?>
-                <select name="status">
-                    <?php foreach ($statuses as $s): ?><option value="<?= $s ?>" <?= $order['status'] === $s ? 'selected' : '' ?>><?= e(order_status_label($s)) ?></option><?php endforeach; ?>
-                </select>
+                <label>Estado
+                    <select name="status">
+                        <?php foreach ($statuses as $s): ?><option value="<?= $s ?>" <?= $order['status'] === $s ? 'selected' : '' ?>><?= e(order_status_label($s)) ?></option><?php endforeach; ?>
+                    </select>
+                </label>
+                <?php if ($order['payment_method'] !== 'store'): ?>
+                    <label>Nº de seguimiento <small class="muted">(se incluye en el email de envío)</small>
+                        <input type="text" name="tracking_number" value="<?= e($order['tracking_number']) ?>" maxlength="80">
+                    </label>
+                <?php endif; ?>
+                <label class="check"><input type="checkbox" name="notify" value="1" checked> Avisar al cliente por email</label>
                 <button class="btn btn-accent btn-block" type="submit">Actualizar</button>
             </form>
+            <?php if ($order['payment_method'] === 'card' && $order['status'] === 'pending'): ?>
+                <p class="muted">Esperando el pago en Stripe. Si no se completa, el pedido se cancelará solo y se repondrá el stock.</p>
+            <?php endif; ?>
         </section>
         <section class="card">
             <h2>Cliente</h2>
@@ -89,7 +104,10 @@ require __DIR__ . '/_header.php';
                 <p><?= e($order['address']) ?><br><?= e($order['postal_code']) ?> <?= e($order['city']) ?><br><?= e($order['province']) ?></p>
             <?php endif; ?>
             <h3>Pago</h3>
-            <p><?= e(payment_method_label($order['payment_method'])) ?></p>
+            <p><?= e(payment_method_label($order['payment_method'])) ?>
+                <?php if ($order['paid_at']): ?><br><small class="muted">Cobrado el <?= date('d/m/Y H:i', strtotime($order['paid_at'])) ?></small><?php endif; ?>
+                <?php if ($order['stripe_payment_intent']): ?><br><a href="<?= e($stripeDashboard . $order['stripe_payment_intent']) ?>" target="_blank" rel="noopener">Ver pago en Stripe ↗</a><?php endif; ?>
+            </p>
             <p class="muted">Realizado el <?= date('d/m/Y \a \l\a\s H:i', strtotime($order['created_at'])) ?></p>
         </section>
     </div>
