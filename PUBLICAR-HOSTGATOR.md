@@ -108,3 +108,16 @@ Mueve todo el contenido de `public_html/tienda` a `public_html` y en `config.php
 
 ## Actualizar la tienda más adelante
 Genera un ZIP nuevo con `bin/empaquetar.sh` (o pídemelo), súbelo y extráelo encima **sin borrar** `config.php`, `uploads/` ni `storage/`. Si hay migraciones nuevas en `database/migrations/`, impórtalas desde cPanel → **phpMyAdmin** → *Importar*.
+
+## Publicación automática desde GitHub (recomendado)
+Con esto, cada cambio que se sube a la rama se publica solo en HostGator (solo los archivos modificados). Nunca toca `config.php`, `uploads/`, `storage/` ni `install.php`.
+
+1. En GitHub abre el repositorio → **Settings** → **Secrets and variables** → **Actions**.
+2. Pestaña **Secrets** → *New repository secret*, crea estos tres:
+   - `FTP_SERVER`: `ftp.ciutat.com` (si falla, el servidor de cPanel, p. ej. `gator3300.hostgator.com`)
+   - `FTP_USERNAME`: tu usuario FTP (cPanel → *Cuentas FTP*; el usuario principal de cPanel también sirve)
+   - `FTP_PASSWORD`: su contraseña
+3. Pestaña **Variables** → *New repository variable*: `FTP_DIR` = `public_html/ciutat.com/bike/` (la carpeta de la tienda vista desde ese usuario FTP, con `/` al final).
+4. Pestaña **Actions** del repositorio → *Publicar en HostGator* → **Run workflow**.
+
+Si creas en cPanel una cuenta FTP limitada a la carpeta de la tienda, `FTP_DIR` será simplemente `./`.

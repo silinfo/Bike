@@ -2,7 +2,7 @@ Options -Indexes
 DirectoryIndex index.php
 
 # Bloquea el acceso web a la configuración y archivos internos
-<FilesMatch "^(config(\.example)?\.php|README\.md|\.gitignore|_.*\.php)$">
+<FilesMatch "^(config(\.example)?\.php|README\.md|\.gitignore|_.*\.php|\.ftp-deploy-sync-state\.json|composer\.(json|lock))$">
     Require all denied
 </FilesMatch>
 

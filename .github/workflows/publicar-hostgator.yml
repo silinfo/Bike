@@ -1,0 +1,81 @@
+# Publica la tienda en HostGator por FTP en cada cambio de la rama.
+#
+# Configuración (una sola vez) en GitHub → Settings → Secrets and variables → Actions:
+#   Secrets:   FTP_SERVER    p. ej. ftp.ciutat.com (o el servidor de cPanel, gator3300.hostgator.com)
+#              FTP_USERNAME  usuario FTP (el de cPanel o una cuenta FTP creada para la tienda)
+#              FTP_PASSWORD  contraseña de ese usuario
+#   Variables: FTP_DIR       carpeta de la tienda vista desde ese usuario FTP, terminada en /
+#                            (cuenta principal de cPanel: public_html/ciutat.com/bike/)
+#
+# Nunca se suben ni se borran en el servidor: config.php, uploads/, storage/ ni install.php.
+name: Publicar en HostGator
+
+on:
+  push:
+    branches: [claude/bike-shop-store-t9abnp, main]
+  workflow_dispatch:
+
+concurrency:
+  group: publicar-hostgator
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comprobar configuración
+        id: cfg
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_DIR: ${{ vars.FTP_DIR }}
+        run: |
+          if [ -z "$FTP_SERVER" ] || [ -z "$FTP_USERNAME" ] || [ -z "$FTP_PASSWORD" ] || [ -z "$FTP_DIR" ]; then
+            echo "::warning::Faltan FTP_SERVER, FTP_USERNAME, FTP_PASSWORD (secrets) o FTP_DIR (variable). No se publica."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            case "$FTP_DIR" in */) ;; *) echo "::error::FTP_DIR debe terminar en /"; exit 1;; esac
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.cfg.outputs.ok == 'true'
+
+      - name: PHP y dependencias de producción
+        if: steps.cfg.outputs.ok == 'true'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+
+      - name: composer install
+        if: steps.cfg.outputs.ok == 'true'
+        run: composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+
+      - name: Comprobar sintaxis PHP
+        if: steps.cfg.outputs.ok == 'true'
+        run: find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l > /dev/null
+
+      - name: Subir por FTP (solo archivos cambiados)
+        if: steps.cfg.outputs.ok == 'true'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ vars.FTP_DIR }}
+          protocol: ftps
+          security: loose
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .github/**
+            config.php
+            install.php
+            uploads/**
+            storage/**
+            bin/empaquetar.sh
+            README.md
+            PUBLICAR-HOSTGATOR.md
+            vendor/**/tests/**
