@@ -32,7 +32,15 @@ jobs:
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
           FTP_DIR: ${{ vars.FTP_DIR || secrets.FTP_DIR }}
+          FTP_DIR_VAR: ${{ vars.FTP_DIR }}
+          FTP_DIR_SECRET: ${{ secrets.FTP_DIR }}
         run: |
+          # FTP_DIR puede estar como variable (se muestra) o como secret (se oculta)
+          if [ -n "$FTP_DIR_VAR" ] && [ -n "$FTP_DIR_SECRET" ] && [ "$FTP_DIR_VAR" != "$FTP_DIR_SECRET" ]; then
+            echo "::error::Hay dos FTP_DIR distintos: uno en Variables ($FTP_DIR_VAR) y otro en Secrets. Borra uno de los dos y deja el correcto."
+            exit 1
+          fi
+          if [ -n "$FTP_DIR_VAR" ]; then echo "FTP_DIR (variable): $FTP_DIR_VAR"; elif [ -n "$FTP_DIR_SECRET" ]; then echo "FTP_DIR: se lee del secret"; fi
           missing=""
           for v in FTP_SERVER FTP_USERNAME FTP_PASSWORD FTP_DIR; do
             [ -n "${!v}" ] || missing="$missing $v"
