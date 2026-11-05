@@ -122,6 +122,15 @@ jobs:
           csscode=$( [ -n "$css" ] && curl -s -m 30 -A "$UA" -o /dev/null -w '%{http_code}' "$css" || echo "sin CSS")
           echo "CSS ($css): $csscode"
           if [ "$live" != "$GITHUB_SHA" ]; then
+            echo "Buscando dónde ha quedado version.txt (diagnóstico):"
+            for u in "https://huma.bike/" "http://huma.bike/" "https://www.huma.bike/" "https://www.ciutat.com/" "https://ciutat.com/bike/" \
+                     "${SITE_URL}public_html/ciutat.com/bike/" "https://huma.bike/public_html/ciutat.com/bike/" "https://www.ciutat.com/ciutat.com/bike/"; do
+              v=$(curl -sL -m 15 -A "$UA" "${u}version.txt?t=$(date +%s)" | head -c 40)
+              [ "$v" = "$GITHUB_SHA" ] && echo "  ✔ ENCONTRADO en ${u}version.txt" || echo "  ✘ ${u}version.txt"
+            done
+            echo "Redirecciones de huma.bike:"
+            curl -sI -m 15 -A "$UA" https://huma.bike/ | grep -iE '^(HTTP|location)' || true
+            curl -sI -m 15 -A "$UA" http://huma.bike/ | grep -iE '^(HTTP|location)' || true
             echo "::error::La web no muestra la versión recién subida: los archivos no están llegando a la carpeta de la tienda. Revisa FTP_DIR."
             exit 1
           fi
