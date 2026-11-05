@@ -16,9 +16,35 @@ function e(?string $s): string
     return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 }
 
+/**
+ * Carpeta de la tienda dentro del dominio ('' en la raíz, '/bike' en una subcarpeta).
+ * Si config.php no la indica, se deduce comparando la ruta del script en disco
+ * con su URL, así funciona aunque la tienda se mueva de carpeta.
+ */
+function base_url(): string
+{
+    static $base = null;
+    if ($base !== null) return $base;
+
+    $configured = rtrim((string)config('site.base_url', ''), '/');
+    if ($configured !== '') return $base = $configured;
+
+    $base = '';
+    $root = realpath(__DIR__ . '/..');
+    $script = realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? ''));
+    $name = (string)($_SERVER['SCRIPT_NAME'] ?? '');
+    if ($root && $script && $name !== '' && str_starts_with($script, $root . DIRECTORY_SEPARATOR)) {
+        $relative = str_replace('\\', '/', substr($script, strlen($root))); // p. ej. /admin/index.php
+        if (str_ends_with($name, $relative)) {
+            $base = rtrim(substr($name, 0, -strlen($relative)), '/');
+        }
+    }
+    return $base;
+}
+
 function url(string $path = ''): string
 {
-    return config('site.base_url', '') . '/' . ltrim($path, '/');
+    return base_url() . '/' . ltrim($path, '/');
 }
 
 /**
@@ -29,7 +55,7 @@ function absolute_url(string $path = ''): string
     $base = rtrim((string)config('site.app_url', ''), '/');
     if ($base === '') {
         $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
-        $base = ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . config('site.base_url', '');
+        $base = ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . base_url();
     }
     return $base . '/' . ltrim($path, '/');
 }

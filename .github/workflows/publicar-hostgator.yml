@@ -6,6 +6,8 @@
 #              FTP_PASSWORD  contraseña de ese usuario
 #   FTP_DIR (como variable o como secret): carpeta de la tienda vista desde ese usuario
 #                            FTP, terminada en / (cuenta principal de cPanel: public_html/ciutat.com/bike/)
+#   SITE_URL (variable, opcional): URL pública de la tienda terminada en /, para comprobar
+#                            tras publicar que la versión nueva está en marcha.
 #
 # Nunca se suben ni se borran en el servidor: config.php, uploads/, storage/ ni install.php.
 name: Publicar en HostGator
@@ -65,6 +67,10 @@ jobs:
         if: steps.cfg.outputs.ok == 'true'
         run: find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l > /dev/null
 
+      - name: Marca de versión
+        if: steps.cfg.outputs.ok == 'true'
+        run: echo "$GITHUB_SHA" > version.txt
+
       - name: Subir por FTP (solo archivos cambiados)
         if: steps.cfg.outputs.ok == 'true'
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -87,3 +93,32 @@ jobs:
             README.md
             PUBLICAR-HOSTGATOR.md
             vendor/**/tests/**
+
+      - name: Comprobar la web publicada
+        if: steps.cfg.outputs.ok == 'true'
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://www.ciutat.com/bike/' }}
+        run: |
+          UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130 Safari/537.36"
+          origin=$(echo "$SITE_URL" | grep -oE '^https?://[^/]+')
+          sleep 5
+          live=$(curl -sSL -m 30 -A "$UA" "${SITE_URL}version.txt?t=$(date +%s)" | head -c 80)
+          echo "Versión publicada: $GITHUB_SHA"
+          echo "version.txt en la web: $live"
+          code=$(curl -sSL -m 30 -A "$UA" -o page.html -w '%{http_code}' "$SITE_URL")
+          echo "Portada: HTTP $code"
+          echo "Archivos estáticos que pide la portada:"
+          grep -oE '(href|src)="[^"]*assets/[^"]*"' page.html | sort -u | head -5 || true
+          css=$(grep -oE 'href="[^"]*style\.css[^"]*"' page.html | head -1 | cut -d'"' -f2)
+          case "$css" in http*) ;; /*) css="$origin$css" ;; ?*) css="$SITE_URL$css" ;; esac
+          csscode=$( [ -n "$css" ] && curl -s -m 30 -A "$UA" -o /dev/null -w '%{http_code}' "$css" || echo "sin CSS")
+          echo "CSS ($css): $csscode"
+          if [ "$live" != "$GITHUB_SHA" ]; then
+            echo "::error::La web no muestra la versión recién subida: los archivos no están llegando a la carpeta de la tienda. Revisa FTP_DIR."
+            exit 1
+          fi
+          if [ "$code" != "200" ] || [ "$csscode" != "200" ]; then
+            echo "::error::La versión nueva está subida, pero la portada (HTTP $code) o su CSS ($csscode) no cargan bien."
+            exit 1
+          fi
+          echo "✔ Web publicada y funcionando con la versión $GITHUB_SHA"
