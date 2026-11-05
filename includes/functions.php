@@ -43,9 +43,16 @@ function app_log(string $message, array $context = []): void
     @file_put_contents(__DIR__ . '/../storage/logs/app.log', $line, FILE_APPEND | LOCK_EX);
 }
 
+/**
+ * URL de un archivo estático con su fecha de modificación (?v=...), para que
+ * el navegador descargue la versión nueva en cuanto el archivo cambia y no
+ * se quede con una copia antigua o rota en caché.
+ */
 function asset(string $path): string
 {
-    return url($path);
+    $file = __DIR__ . '/../' . ltrim($path, '/');
+    $mtime = is_file($file) ? filemtime($file) : false;
+    return url($path) . ($mtime ? '?v=' . $mtime : '');
 }
 
 function money(float|string $amount): string
